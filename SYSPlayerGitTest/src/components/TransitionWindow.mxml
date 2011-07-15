@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   width="322" height="281" backgroundColor="#000000" borderVisible="false"
+				   dropShadowVisible="true" xmlns:components="components.*">	
+	
+	<s:layout>
+		<s:VerticalLayout
+			horizontalAlign="center"
+			verticalAlign="middle"
+			paddingTop="1"
+			paddingBottom="1"
+			paddingLeft="1"
+			paddingRight="1"
+			gap="1"/>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[			
+			//interactive var
+			public var varSYSPlayer:SYSPlayer;
+			private var varProgressType:int;//1:percentage 2:no percentage
+			private var varPercentage:int;
+			private var varFromState:String;
+			private var varToState:String;
+			
+			private function init():void
+			{
+				prb.setProgress(0,1);
+				labInfo.text = "";
+				labPercent.text = "";
+			}
+			
+			public function trasitionProcess(varFromState:String, varToState:String):void
+			{
+				init();
+				this.varFromState = varFromState;
+				this.varToState = varToState;
+				varSYSPlayer.setCurrentState("TRANSITION");
+				if (this.varFromState == "LOGIN")
+				{
+					varSYSPlayer.login.cleanup();
+					transitionTo();
+				}
+				else if (this.varFromState == "ORIGINAL")
+				{
+					if (this.varToState == "ORIGINAL_FILEUPLOADED")
+					{
+						varSYSPlayer.uploadFiles();
+					}
+					else
+					{
+						varSYSPlayer.original.cleanup();
+						transitionTo();
+					}
+					
+				}
+				else if (this.varFromState == "PHOTO")
+				{
+					varSYSPlayer.photo.cleanup();
+					transitionTo();
+				}
+				else if (this.varFromState == "PLAY")
+				{
+					varSYSPlayer.play.cleanup();
+					transitionTo();
+				}
+				else if (this.varFromState == "RECORD")
+				{
+					if (this.varToState == "ORIGINAL" && varSYSPlayer.record.varVideoTimeline.length > 0)
+					{
+						prb.indeterminate = false;
+						prb.mode = "manual";
+						labInfo.text = "正在保存视屏...";
+						//cleanup will be in nativeprocess called by saveFiles
+						varSYSPlayer.record.saveFiles();
+					}
+					else
+					{
+						varSYSPlayer.record.cleanup();
+						transitionTo();
+					}
+				}
+			}
+			
+			public function transitionTo():void
+			{
+				if ((varToState == "ORIGINAL_FILESELECTED" || varToState == "ORIGINAL") && varSYSPlayer.original != null)
+				{
+					varSYSPlayer.original.init();
+				}
+				else if (varToState == "LOGIN" && varSYSPlayer.login != null)
+				{
+					varSYSPlayer.login.init();
+				}
+				else if (varToState == "PHOTO" && varSYSPlayer.photo != null)
+				{
+					varSYSPlayer.photo.init();
+				}
+				else if (varToState == "RECORD" && varSYSPlayer.record != null)
+				{
+					varSYSPlayer.record.init();
+					
+				} 
+				else if (varToState == "PLAY" && varSYSPlayer.play != null)
+				{
+					varSYSPlayer.play.init();
+				}
+				
+				if (varToState == "ORIGINAL_FILESELECTED" || varToState == "ORIGINAL_FILEUPLOADED")
+				{
+					varToState = "ORIGINAL";
+				}
+				varSYSPlayer.setCurrentState(varToState);
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:VGroup height="100%" width="100%" horizontalAlign="center" verticalAlign="middle">
+		<s:Label id="labPercent" styleName="middle infoColorBlue"/>
+		<mx:ProgressBar id="prb" width="80%" height="11"/>
+		
+		<s:Label id="labInfo" styleName="middle infoColorBlue"/>
+	</s:VGroup>
+	
+	<components:ControlButtonGroup enabled="false" width="100%"/>
+	
+</s:BorderContainer>

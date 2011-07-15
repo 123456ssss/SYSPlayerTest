@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   width="322" height="281" backgroundColor="#000000" borderVisible="false"
+				   dropShadowVisible="true"
+				   creationComplete="init()">	
+	
+	<s:layout>
+		<s:VerticalLayout
+			horizontalAlign="center"
+			verticalAlign="middle"
+			gap="20"/>
+	</s:layout>
+	<fx:Metadata>
+		[Event(name="controlButton", type="events.ControlEvent")]
+	</fx:Metadata>
+	<fx:Script>
+		<![CDATA[
+			import events.ControlEvent;
+			[Bindable]
+			private var varInfo:String;
+			
+			//interactive var
+			[Bindable]
+			public var varSYSPlayer:SYSPlayer;
+			
+			public function init():void
+			{
+				labInfo.text = "";
+			}
+			
+			public function cleanup():void
+			{
+				
+			}
+			
+			protected function btnLogin_clickHandler(event:MouseEvent):void
+			{		
+				varInfo = "登录中..."
+				var result:String;
+				//login check and return the result
+				result = loginCheck(varSYSPlayer.varUserName, varSYSPlayer.varPassword);
+				switch(result)
+				{
+					case "no network":
+						varInfo = "请检查网络连接!";
+						break;
+					case "wrong account info":
+						varInfo = "用户名或密码错误，请重试!";
+						break;
+					default://success
+						varInfo = "";
+						varSYSPlayer.varUserCompany = result;
+						varSYSPlayer.varAuthInfo = "内容授权" + varSYSPlayer.varUserCompany  + ":" + varSYSPlayer.varUserName + "使用";
+						varSYSPlayer.varCurrentMovie = null;
+						dispatchEvent(new ControlEvent("controlButton", "btnLogin"));
+						break;
+				}
+			}
+			
+			private function loginCheck(varUserName:String, varPassword:String):String
+			{
+				return "test company";
+			}
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Label styleName="commonColor big" text="登录"/>
+	<s:HGroup verticalAlign="middle">		
+		<s:Label styleName="commonColor middle" text="帐号:"/>
+		<s:TextInput id="txiAccount" text="@{varSYSPlayer.varUserName}"/>
+	</s:HGroup>
+	<s:HGroup verticalAlign="middle">	
+		<s:Label styleName="commonColor middle" text="密码:"/>
+		<s:TextInput id="txiPassword" displayAsPassword="true"  text="@{varSYSPlayer.varPassword}"/>
+	</s:HGroup>	
+	<s:Label id="labInfo" styleName="commonColor small warningColor"/>
+	<s:Button id="btnLogin" styleName="login" label="登录" click="btnLogin_clickHandler(event)"/>
+	<s:TextInput id="labIp" borderVisible="false" color="#FFFFFF" contentBackgroundColor="#000000"/>
+</s:BorderContainer>

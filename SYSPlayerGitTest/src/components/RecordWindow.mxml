@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   width="322" height="281" backgroundColor="#000000" borderVisible="false"
+				   dropShadowVisible="true" xmlns:components="components.*"
+				   creationComplete="init()">	
+	
+	<s:layout>
+		<s:VerticalLayout
+			horizontalAlign="center"
+			verticalAlign="middle"
+			gap="1"/>
+	</s:layout>
+	<fx:Metadata>
+		[Event(name="controlButton", type="events.ControlEvent")]
+	</fx:Metadata>
+	<fx:Script>
+		<![CDATA[
+			import events.ControlEvent;
+			
+			import flash.sampler.NewObjectSample;
+			
+			import flashx.textLayout.formats.FormatValue;
+			
+			import mx.formatters.Formatter;
+			
+			private var varInfo:String;
+			private var varVideoByteArray:ByteArray;
+			private var varVideo:Video;
+			private var varVideoFile:File;
+			private var varSoundFile:File;
+			private var varSoundByteArray:ByteArray;
+			private var varWavByteArray:ByteArray;
+			private var varRecordStartTime:Date;
+			private var varCurrentFrameTime:Date;
+			private var varPauseStartTime:Number;
+			private var varPauseEndTime:Number;
+			private var varLastFrameTime:Date;
+			private var varRecordPauseInterval:Number;
+			private var varVideoVector:Vector.<BitmapData>;
+			public var varVideoTimeline:Array;
+			private var varVideoRecordInterval:Number;
+			private var varTmpCount:int;
+			private var varTmpLen:int;
+			private var varMyWriter:SimpleFlvWriter;
+			private var varTempVideoFile:File;
+			private var varTempSoundFile:File;
+			private var varWavEncoder:WaveEncoder;
+			private var varFinalFlv:File;
+			
+			//ffmpeg related
+			private var varFfmpegFile:File
+			private var varExeFile:File;
+			private var varNativeProcess:NativeProcess;
+			private var varFinalRecordFile:File;
+			//log string to desktop/log.txt
+			public var varLogOutput:String ="";
+			
+			//interactive var
+			private var varFlvByteArray:ByteArray;
+			private var varUserName:String;
+			private var varUserCompany:String;
+			
+			[Bindable]
+			public var varSYSPlayer:SYSPlayer;
+			
+			public function init():void
+			{
+				labInfo.text = "";
+				labInfoBig1.text = "";
+				labAuth.text = varSYSPlayer.varAuthInfo;
+				resetControlButton();
+				addEventListener(ControlEvent.CONTROL_BUTTON, controlEventHandler);
+				varSYSPlayer.varChoseCamera.setMode(varSYSPlayer.varflvWidth, varSYSPlayer.varflvHeight, varSYSPlayer.varflvFrameRate);
+				//				if (varVideo == null)
+				{
+					varVideo = new Video(varSYSPlayer.varflvWidth, varSYSPlayer.varflvHeight);
+					vid.addChild(varVideo);
+				}
+				varVideo.attachCamera(varSYSPlayer.varChoseCamera);
+				varRecordStartTime = new Date();
+				varLastFrameTime = new Date();
+				varRecordPauseInterval = -1;
+				varVideoVector = new Vector.<BitmapData>;
+				varVideoTimeline = new Array();
+				
+				//sound related
+				varSoundByteArray  = new ByteArray;
+				varWavByteArray = new ByteArray;
+				varSYSPlayer.varChoseMic.rate = 44;
+				varSYSPlayer.varChoseMic.setSilenceLevel(0);					
+				varSYSPlayer.varChoseMic.setUseEchoSuppression(true);
+				varSYSPlayer.varChoseMic.soundTransform = new SoundTransform(0,0);
+				varSYSPlayer.varChoseMic.setLoopBack(true);
+				pauseRecord();
+			}
+			
+			public function cleanup():void
+			{
+				vid.removeChild(varVideo);
+			}
+			
+			private function micSampleDataHandler(e:SampleDataEvent):void {			
+				while (e.data.bytesAvailable) {
+					var sample:Number = e.data.readFloat();
+					varSoundByteArray.writeFloat(sample);
+				}
+			}
+			
+			private function recordVid():void
+			{
+				varCurrentFrameTime = new Date();
+				var frameInterval:Number = varCurrentFrameTime.getTime() - varLastFrameTime.getTime();
+				if (frameInterval > (Math.round(1000 / varSYSPlayer.varflvFrameRate)))
+				{
+					varLastFrameTime = varCurrentFrameTime;
+					var timeline:Number = varCurrentFrameTime.getTime() - varRecordStartTime.getTime() - varRecordPauseInterval;					
+					var snapshot:BitmapData = new BitmapData(varSYSPlayer.varflvWidth, varSYSPlayer.varflvHeight, true);
+					snapshot.draw(varVideo);
+					varVideoVector.push(snapshot);
+					varVideoTimeline.push(timeline);
+					var tmpSec:int = Math.round(timeline / 1000);
+					var tmpLeftSec:int = varSYSPlayer.varRecordSecLimitation - tmpSec;
+					labInfo.text = "已录制" + Math.floor(tmpSec / 60) + ":" + (tmpSec % 60) + "秒,还可录制" + Math.floor(tmpLeftSec / 60) + ":" + (tmpLeftSec % 60) + "秒";
+					if (tmpLeftSec < 170)
+					{
+						labInfoBig1.text = "剩余:" + tmpLeftSec + "秒";
+					}
+					
+					if (timeline >  (varSYSPlayer.varRecordSecLimitation * 1000))
+					{
+						dispatchEvent(new ControlEvent("controlButton", "btnStop"));
+					}
+				}			
+			}
+			
+			private function resetControlButton():void
+			{
+				cbg.currentState = "RECORD_PAUSED";
+				cbg.switchLogout(false);
+				cbg.switchPhoto(false);
+				cbg.switchPause(true);
+				cbg.switchRecord(true);				
+				cbg.switchPlay(true);
+				cbg.switchStop(true);
+				cbg.switchUpload(false);
+				cbg.switchOpen(false);	
+			}
+			
+			private function controlEventHandler(e:ControlEvent):void
+			{
+				if (e.strButton == "btnPause")
+				{
+					cbg.currentState = "RECORD_PAUSED";
+					pauseRecord();
+				}
+				else if (e.strButton == "btnRecord")
+				{
+					cbg.currentState = "RECORDING";
+					resumeRecord();
+				}
+			}
+			
+			public function stopRecord():void
+			{
+				clearInterval(varVideoRecordInterval);
+				varSYSPlayer.varChoseMic.removeEventListener(SampleDataEvent.SAMPLE_DATA, micSampleDataHandler);
+				varVideo.attachCamera(null);
+			}
+			
+			private function pauseRecord():void
+			{
+				labInfoBig1.text = "暂停中...";
+				labInfoBig2.text = "点击";
+				labInfoBig2.visible = true;
+				labInfoBig2.includeInLayout = true;
+				btnRecord.visible = true;
+				btnRecord.includeInLayout = true;
+				labInfoBig3.text = "开始录制";
+				labInfoBig3.visible = true;
+				labInfoBig3.includeInLayout = true;
+				cbg.switchPause(false);
+				cbg.switchPlay(true);
+				clearInterval(varVideoRecordInterval);
+				varSYSPlayer.varChoseMic.removeEventListener(SampleDataEvent.SAMPLE_DATA, micSampleDataHandler);
+				varPauseStartTime = new Date().getTime();
+			}
+			
+			private function resumeRecord():void
+			{
+				labInfoBig1.text = "";
+				labInfoBig2.visible = false;
+				labInfoBig2.includeInLayout = false;
+				btnRecord.visible = false;
+				btnRecord.includeInLayout = false;
+				labInfoBig3.visible = false;
+				labInfoBig3.includeInLayout = false;				
+				cbg.switchPause(true);
+				cbg.switchPlay(false);
+				varPauseEndTime = new Date().getTime();
+				
+				varRecordPauseInterval += varPauseEndTime - varPauseStartTime;
+				varVideoRecordInterval = setInterval(recordVid, 1);
+				varSYSPlayer.varChoseMic.addEventListener(SampleDataEvent.SAMPLE_DATA, micSampleDataHandler);
+			}
+			
+			public function mergeSoundVideo():void{
+				varNativeProcess = new NativeProcess();
+				varNativeProcess.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA, onOutputData);
+				varNativeProcess.addEventListener(ProgressEvent.STANDARD_ERROR_DATA, onErrorData);
+				varNativeProcess.addEventListener(NativeProcessExitEvent.EXIT, onExit);
+				var os:String = flash.system.Capabilities.os.substr(0, 3);
+				if (os == "Win") {
+					varExeFile = File.applicationDirectory.resolvePath("ffmpeg.exe");
+				} else if (os == "Mac") {
+					varExeFile = File.applicationDirectory.resolvePath("ffmpeg");
+				} else {
+					trace("Must be Unix or Linux");
+				}
+				var startupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
+				startupInfo.executable = varExeFile;
+				startupInfo.workingDirectory = File.applicationStorageDirectory;
+				var processArgs:Vector.<String> = new Vector.<String>();	
+				
+				processArgs.push("-isync","-y","-i","tmpSound.wav", "-i","tmpVideo.flv","-vb","2000k","-f","flv", varSYSPlayer.varUserName + ".flv");
+				
+				startupInfo.arguments = processArgs;
+				
+				try {
+					trace("pstart:" + new Date().getTime());
+					varNativeProcess.start(startupInfo);
+				} catch (e:IllegalOperationError) {
+					trace("Illegal Operation: "+e.toString());
+				} catch (ae:ArgumentError) {
+					trace("Argument Error: "+ae.toString());
+				} catch (e:Error) {
+					trace("Error: "+e.toString());
+				}
+			}
+			
+			public function onExit(e:NativeProcessExitEvent):void {
+				trace("Native Process Exit code: "+e.exitCode);
+				varFinalFlv = File.applicationStorageDirectory.resolvePath(varSYSPlayer.varUserName + ".flv");
+				var varTmpDate:Date = new Date();
+				var varTmpFileName:String = varSYSPlayer.varUserName + "_" + varTmpDate.getFullYear() + "_" + (varTmpDate.getMonth() + 1) + "_" + varTmpDate.getDate() + "_" + varTmpDate.getHours() + "_" + varTmpDate.getMinutes() + "_" + varTmpDate.getSeconds() + ".flv";
+				varFinalFlv.copyTo(File.desktopDirectory.resolvePath(varTmpFileName));
+				varSYSPlayer.setCurrentMovie(File.desktopDirectory.resolvePath(varTmpFileName));
+				varSYSPlayer.record.cleanup();
+				varSYSPlayer.transition.transitionTo();
+			}
+			
+			private function onOutputData(evt:ProgressEvent):void{
+				varLogOutput +="\n"+varNativeProcess.standardOutput.readUTFBytes(varNativeProcess.standardOutput.bytesAvailable);
+				var varTempFile:File = File.desktopDirectory.resolvePath("log.txt");
+				var varFs:FileStream = new FileStream();
+				varFs.open(varTempFile,FileMode.WRITE);
+				varFs.writeUTF(varLogOutput);				
+				varFs.close();
+			}
+			
+			private function onErrorData(evt: ProgressEvent):void{
+				varLogOutput +="\n"+varNativeProcess.standardError.readUTFBytes(varNativeProcess.standardError.bytesAvailable);
+				var varTempFile:File = File.desktopDirectory.resolvePath("log.txt");
+				var varFs:FileStream = new FileStream();
+				varFs.open(varTempFile,FileMode.WRITE);
+				varFs.writeUTF(varLogOutput);	
+				varFs.close();
+				
+			}
+			
+			public function saveFiles():void
+			{				
+				varVideoVector.reverse();
+				varVideoTimeline.reverse();
+				varTmpCount = 0;
+				varTmpLen = varVideoVector.length;
+				
+				varTempVideoFile = File.createTempFile();
+				varMyWriter = new SimpleFlvWriter(varSYSPlayer.varflvFrameRate);
+				trace("temp file created at: " + varTempVideoFile.nativePath );
+				varMyWriter.createFile(varTempVideoFile, varSYSPlayer.varflvWidth, varSYSPlayer.varflvHeight);
+				
+				varWavEncoder = new WaveEncoder();
+				varWavByteArray = varWavEncoder.encode(varSoundByteArray);
+				varTempSoundFile = File.createTempFile();
+				var fs:FileStream = new FileStream();
+				fs.open(varTempSoundFile, FileMode.WRITE);
+				fs.writeBytes(varWavByteArray);
+				fs.close();
+				trace("wav:" + varTempSoundFile.nativePath.toString() + "close!" + new Date().getTime());
+				varSoundByteArray  = null;
+				varWavByteArray = null;
+				varSYSPlayer.varChoseMic = null;
+				
+				//move tempSoundFile and tempVideoFile from tmp folder to application data folder
+				var tmpFile:File = File.applicationStorageDirectory.resolvePath("tmpSound.wav");
+				varTempSoundFile.moveTo(tmpFile, true);
+				callLater(saveEachFram);
+			}
+			
+			private function saveEachFram():void
+			{
+				var tmpSnap:BitmapData;
+				var tmpTimeline:Number;
+				if (varTmpCount < varTmpLen)
+				{
+					tmpSnap = varVideoVector.pop()
+					tmpTimeline = varVideoTimeline.pop();
+					varMyWriter.saveFrame(tmpSnap, tmpTimeline);
+					varTmpCount++;
+					varSYSPlayer.transition.prb.setProgress(varTmpCount, varTmpLen);
+					varSYSPlayer.transition.labPercent.text = Math.round(varTmpCount / varTmpLen * 100) + "%";
+					trace("" + varTmpCount + ":" + varTmpLen);
+					callLater(saveEachFram);
+				}
+				else
+				{
+					varMyWriter.closeFile();
+					
+					//move tempSoundFile and tempVideoFile from tmp folder to application data folder
+					varTempVideoFile.moveTo(File.applicationStorageDirectory.resolvePath("tmpVideo.flv"), true);
+					trace(File.applicationStorageDirectory.nativePath);
+					mergeSoundVideo();
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	
+	<s:VGroup width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+		
+		<s:BorderContainer width="{varSYSPlayer.varflvWidth}" height="{varSYSPlayer.varflvHeight}" >
+			
+			<s:VideoDisplay id="vid" width="{varSYSPlayer.varflvWidth}" height="{varSYSPlayer.varflvHeight}"/>
+			
+			<s:VGroup width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+				<s:Label id="labInfoBig1" styleName="big infoColorYellow"/>
+				<s:HGroup horizontalAlign="center" verticalAlign="middle">
+					<s:Label id="labInfoBig2" styleName="middle infoColorYellow" visible="false" includeInLayout="false"/>
+					<mx:Button id="btnRecord" width="25" height="25"
+							   visible="false"
+							   includeInLayout="false"
+							   buttonMode="true"
+							   click="dispatchEvent(new ControlEvent('controlButton', 'btnRecord'))"
+							   disabledSkin="@Embed(source='assets/recordDisable.png')"
+							   downSkin="@Embed(source='assets/recordEnable.png')"
+							   overSkin="@Embed(source='assets/recordActive.png')"
+							   upSkin="@Embed(source='assets/recordEnable.png')"/>
+					<s:Label id="labInfoBig3" styleName="middle infoColorYellow" visible="false" includeInLayout="false"/>
+				</s:HGroup>
+			</s:VGroup>
+			
+			<s:Label id="labInfo" styleName="small infoColorYellow"/>
+			
+		</s:BorderContainer>
+		
+	</s:VGroup>
+	<s:Label id="labAuth" styleName="infoColorBlue small" textAlign="center" width="100%"/>
+	
+	<components:ControlButtonGroup id="cbg" width="100%"/>
+	
+</s:BorderContainer>

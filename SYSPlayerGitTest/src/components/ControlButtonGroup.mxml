@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:HGroup xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  horizontalAlign="center">
+	<s:states>
+		<s:State name="NORMAL"/>
+		<s:State name="RECORDING"/>
+		<s:State name="RECORD_PAUSED"/>
+		<s:State name="PLAYING"/>
+		<s:State name="PLAY_PAUSED"/>
+	</s:states>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Metadata>
+		[Event(name="controlButton", type="events.ControlEvent")]
+	</fx:Metadata>
+	<fx:Script>
+		<![CDATA[
+			import events.ControlEvent;
+			public function switchPhoto(onOff:Boolean):void
+			{
+				btnPhoto.enabled = onOff;
+				btnPhoto.buttonMode = onOff;
+			}
+			
+			public function switchPause(onOff:Boolean):void
+			{
+				if (currentState == "RECORDING" || currentState == "PLAYING")
+				{
+					btnPause.enabled = onOff;
+					btnPause.buttonMode = onOff;
+				}
+			}
+			
+			public function switchRecord(onOff:Boolean):void
+			{
+				if (currentState == "RECORD_PAUSED" || currentState == "NORMAL")
+				{
+				btnRecord.enabled = onOff;
+				btnRecord.buttonMode = onOff;
+				}
+			}
+			
+			public function switchPlay(onOff:Boolean):void
+			{
+				if (currentState == "NORMAL" || currentState == "PLAY_PAUSED")
+				{
+					btnPlay.enabled = onOff;
+					btnPlay.buttonMode = onOff;
+				}
+			}
+			
+			public function switchStop(onOff:Boolean):void
+			{
+				btnStop.enabled = onOff;
+				btnStop.buttonMode = onOff;
+			}
+			
+			public function switchUpload(onOff:Boolean):void
+			{
+				btnUpload.enabled = onOff;
+				btnUpload.buttonMode = onOff;
+			}
+			
+			public function switchLogout(onOff:Boolean):void
+			{
+				btnLogout.enabled = onOff;
+				btnLogout.buttonMode = onOff;
+			}
+			
+			public function switchOpen(onOff:Boolean):void
+			{
+				btnOpen.enabled = onOff;
+				btnOpen.buttonMode = onOff;
+			}
+			
+			
+			protected function btnLogout_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnLogout"));
+				
+			}
+			
+			protected function btnPhoto_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnPhoto"));
+				
+			}
+			
+			protected function btnPause_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnPause"));
+				
+			}
+			
+			protected function btnRecord_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnRecord"));
+				
+			}
+			
+			protected function btnPlay_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnPlay"));
+			}
+			
+			protected function btnStop_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnStop"));
+				
+			}
+			
+			protected function btnUpload_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnUpload"));
+				
+			}
+			
+			protected function btnOpen_clickHandler(event:MouseEvent):void
+			{
+				dispatchEvent(new ControlEvent("controlButton", "btnOpen"));
+				
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:HGroup width="20%">
+		<mx:Button id="btnLogout" width="25" height="25"
+				   upSkin="@Embed(source='assets/uploadEnable.png')"
+				   overSkin="@Embed(source='assets/uploadActive.png')"
+				   downSkin="@Embed(source='assets/uploadEnable.png')"
+				   disabledSkin="@Embed(source='assets/uploadDisable.png')"
+				   buttonMode="true"
+				   click="btnLogout_clickHandler(event)"/>
+		<mx:Button id="btnPhoto" width="25" height="25"
+				   upSkin="@Embed(source='assets/photoEnable.png')"
+				   overSkin="@Embed(source='assets/photoActive.png')"
+				   downSkin="@Embed(source='assets/photoEnable.png')"
+				   disabledSkin="@Embed(source='assets/photoDisable.png')"
+				   buttonMode="true"
+				   click="btnPhoto_clickHandler(event)"/>
+	</s:HGroup>
+	<s:HGroup width="60%" horizontalAlign="center">
+		<mx:Button id="btnPause" includeIn="PLAYING,RECORDING" width="25" height="25"
+				   click="btnPause_clickHandler(event)"
+				   disabledSkin="@Embed(source='assets/pauseDisable.png')"
+				   downSkin="@Embed(source='assets/pauseEnable.png')"
+				   overSkin="@Embed(source='assets/pauseActive.png')"
+				   upSkin="@Embed(source='assets/pauseEnable.png')"
+				   buttonMode="true"/>
+		<mx:Button id="btnPlay" includeIn="NORMAL,PLAY_PAUSED" width="25" height="25"
+				   click="btnPlay_clickHandler(event)"
+				   disabledSkin="@Embed(source='assets/playDisable.png')"
+				   downSkin="@Embed(source='assets/playEnable.png')"
+				   overSkin="@Embed(source='assets/playActive.png')"
+				   upSkin="@Embed(source='assets/playEnable.png')"
+				   buttonMode="true"/>
+		<mx:Button id="btnRecord" includeIn="NORMAL,RECORD_PAUSED" width="25" height="25"
+				   buttonMode="true" click="btnRecord_clickHandler(event)"
+				   disabledSkin="@Embed(source='assets/recordDisable.png')"
+				   downSkin="@Embed(source='assets/recordEnable.png')"
+				   overSkin="@Embed(source='assets/recordActive.png')"
+				   upSkin="@Embed(source='assets/recordEnable.png')"/>
+		<mx:Button id="btnStop" width="25" height="25"
+				   upSkin="@Embed(source='assets/stopEnable.png')"
+				   overSkin="@Embed(source='assets/stopActive.png')"
+				   downSkin="@Embed(source='assets/stopEnable.png')"
+				   disabledSkin="@Embed(source='assets/stopDisable.png')"
+				   buttonMode="true"
+				   click="btnStop_clickHandler(event)"
+				   />
+	</s:HGroup>
+	<s:HGroup width="20%" horizontalAlign="right">
+		<mx:Button id="btnOpen" width="25" height="25"
+				   upSkin="@Embed(source='assets/openEnable.png')"
+				   overSkin="@Embed(source='assets/openActive.png')"
+				   downSkin="@Embed(source='assets/openEnable.png')"
+				   disabledSkin="@Embed(source='assets/openDisable.png')"
+				   buttonMode="true"
+				   click="btnOpen_clickHandler(event)"/>
+		<mx:Button id="btnUpload" width="25" height="25"
+				   upSkin="@Embed(source='assets/uploadEnable.png')"
+				   overSkin="@Embed(source='assets/uploadActive.png')"
+				   downSkin="@Embed(source='assets/uploadEnable.png')"
+				   disabledSkin="@Embed(source='assets/uploadDisable.png')"
+				   buttonMode="true"
+				   click="btnUpload_clickHandler(event)"/>
+	</s:HGroup>
+	
+	
+</s:HGroup>

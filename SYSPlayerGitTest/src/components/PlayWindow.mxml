@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   width="322" height="281" backgroundColor="#000000" borderVisible="false"
+				   dropShadowVisible="true" xmlns:components="components.*"
+				   creationComplete="init()">	
+	
+	<s:layout>
+		<s:VerticalLayout
+			horizontalAlign="center"
+			verticalAlign="middle"
+			gap="1"
+			paddingBottom="1"
+			paddingLeft="1"
+			paddingRight="1"
+			paddingTop="1"/>
+	</s:layout>
+	<fx:Metadata>
+		[Event(name="controlButton", type="events.ControlEvent")]
+	</fx:Metadata>
+	<fx:Script>
+		<![CDATA[
+			import events.ControlEvent;
+			
+			import mx.events.FlexEvent;
+			private var varInfo:String;
+			private var varVideo:Video;
+			private var varAuthInfo:String;
+			
+			//interactive var
+			private var varFlvByteArray:ByteArray;
+			[Bindable]
+			private var varFlvWidth:int=320;
+			[Bindable]
+			private var varFlvHeight:int=240;
+			private var varUserName:String;
+			private var varUserCompany:String;
+			[Bindable]
+			public var varSYSPlayer:SYSPlayer;
+			
+			public function init():void
+			{
+				labAuth.text = varSYSPlayer.varAuthInfo;
+				resetControlButton();
+				addEventListener(ControlEvent.CONTROL_BUTTON, controlEventHandler);
+				if (varVideo == null)
+				{
+					varVideo = new Video(varSYSPlayer.varflvWidth, varSYSPlayer.varflvHeight);
+					vidVideo.addChild(varVideo);
+				}
+				varVideo.attachNetStream(varSYSPlayer.varNetStream);
+				varSYSPlayer.varNetStream.seek(0);
+				varSYSPlayer.varNetStream.resume();
+				hsl.addEventListener(MouseEvent.MOUSE_DOWN, hslMouseDownHandler);
+				addEventListener(Event.ENTER_FRAME,enterFrameHandler);
+			}
+			
+			private function controlEventHandler(e:ControlEvent):void
+			{
+				if (e.strButton == "btnPause")
+				{
+					cbg.currentState = "PLAY_PAUSED";
+					varSYSPlayer.varNetStream.pause();
+				}
+				else if (e.strButton == "btnPlay")
+				{
+					cbg.currentState = "PLAYING";
+					varSYSPlayer.varNetStream.resume();
+				}
+			}
+			
+			public function cleanup():void
+			{
+				varSYSPlayer.varNetStream.pause();
+				varVideo.clear();
+			}
+			
+			private function resetControlButton():void
+			{
+				cbg.currentState = "PLAYING";
+				cbg.switchLogout(false);
+				cbg.switchPhoto(false);
+				cbg.switchPause(true);
+				cbg.switchRecord(false);				
+				cbg.switchPlay(true);
+				cbg.switchStop(true);
+				cbg.switchUpload(false);
+				cbg.switchOpen(false);
+			}
+			
+			protected function hslMouseDownHandler(e:MouseEvent):void
+			{
+				varSYSPlayer.varNetStream.pause();
+				varSYSPlayer.varNetStream.seek((e.localX / hsl.width) * varSYSPlayer.varMovieDuration);
+				varSYSPlayer.varNetStream.resume();
+				
+			}			
+			
+			private function enterFrameHandler(e:Event):void
+			{
+				hsl.value = varSYSPlayer.varNetStream.time + varSYSPlayer.movieOffset;
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	
+	<s:VGroup width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+		
+		
+		<s:BorderContainer width="{varFlvWidth}" height="{varFlvHeight}" >
+			<s:Label styleName="small infoColorYellow" text="ddddddddd"/>
+
+			<s:VideoDisplay id="vidVideo" width="{varFlvHeight}" height="{varFlvHeight}"/>
+			<s:HSlider id="hsl" buttonMode="true" x="0" y="{240-hsl.height}" width="100%" maximum="{varSYSPlayer.varMovieDuration}"/>
+				
+		</s:BorderContainer>
+
+	</s:VGroup>
+	<s:Label id="labAuth" styleName="infoColorBlue small" textAlign="center" width="100%"/>
+		
+	<components:ControlButtonGroup id="cbg" width="100%"/>
+	
+</s:BorderContainer>

@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   xmlns:components="components.*"
+				   width="322" height="281" backgroundColor="#000000" borderVisible="false"
+				   dropShadowVisible="true"
+				   creationComplete="init()">	
+	
+	<s:layout>
+		<s:VerticalLayout
+			horizontalAlign="center"
+			verticalAlign="middle"
+			paddingTop="1"
+			paddingBottom="1"
+			paddingLeft="1"
+			paddingRight="1"
+			gap="1"/>
+	</s:layout>
+	<fx:Metadata>
+		[Event(name="controlButton", type="events.ControlEvent")]
+	</fx:Metadata>
+	<fx:Script>
+		<![CDATA[
+			import events.ControlEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.ArrayList;
+			import mx.events.CollectionEvent;
+			import mx.events.FlexEvent;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.utils.ObjectProxy;
+			
+			import spark.events.IndexChangeEvent;
+			
+			private var videoWidth:int = 80;
+			private var videoHeight:int = 60;
+			private var photoWidth:int = 80;
+			private var photoHeight:int = 60;
+			private var video:Video;
+			
+			//interactive var
+			[Bindable]
+			public var varSYSPlayer:SYSPlayer;
+			
+			public function init():void
+			{		
+				addEventListener(ControlEvent.CONTROL_BUTTON, controlEventHandler);
+				if (video == null)
+				{
+					video = new Video(videoWidth, videoHeight);
+					vidVideoPreview.addChild(video);
+					
+				}
+				if (varSYSPlayer.varMovieByteArray != null)
+				{
+					varSYSPlayer.varNetStream.pause();
+					varSYSPlayer.varNetStream.seek(Math.round(hslPreviewPgb.maximum / 2));
+					hslPreviewPgb.value = (Math.round(hslPreviewPgb.maximum / 2));
+					video.attachNetStream(varSYSPlayer.varNetStream);
+				}
+				
+				//varCurrentPhoto
+				
+				imgPhotoPreview.source = varSYSPlayer.varPhotoBitmapData;
+				
+				resetShotcutButton();
+				resetControlButton();
+			}
+			
+			public function cleanup():void
+			{
+				video.clear();
+			}
+			
+			private function controlEventHandler(e:ControlEvent):void
+			{
+				if (e.strButton == "btnOpen")
+				{
+					varSYSPlayer.browseFlvFile();
+				}
+			}
+			
+			private function resetShotcutButton():void
+			{
+				shtRecord.includeInLayout = true;
+				if (varSYSPlayer.varMovieByteArray != null)
+				{
+					shtPlay.includeInLayout = true;
+					shtPlay.visible = true;
+				}
+				else
+				{
+					shtPlay.includeInLayout = false;
+					shtPlay.visible = false;
+				}
+				shtPhoto.includeInLayout = true;
+				if (varSYSPlayer.varMovieByteArray != null)
+				{
+					shtUpload.includeInLayout = true;
+					shtUpload.visible = true;
+				}
+				else
+				{
+					shtUpload.includeInLayout = false;
+					shtUpload.visible = false;
+				}
+				shtOpen.includeInLayout = true;
+			}
+			
+			public function resetControlButton():void
+			{
+				cbg.switchLogout(true);
+				cbg.switchPhoto(true);
+				cbg.switchPause(false);
+				cbg.switchRecord(true);
+				cbg.switchOpen(true);
+				if (varSYSPlayer.varMovieByteArray != null)
+				{
+					cbg.switchPlay(true);
+				}
+				else
+				{
+					cbg.switchPlay(false);
+				}
+				cbg.switchStop(false);
+				if (varSYSPlayer.varMovieByteArray != null)
+				{
+					cbg.switchUpload(true);
+				}
+				else
+				{
+					cbg.switchUpload(false);
+				}				
+			}
+			
+			protected function ddlCamera_changeHandler(e:IndexChangeEvent):void
+			{
+				varSYSPlayer.varChoseCameraIndex = e.newIndex;
+			}
+			
+			protected function hslPreviewPgb_changeHandler(event:Event):void
+			{
+				varSYSPlayer.varNetStream.pause();
+				varSYSPlayer.varNetStream.seek(hslPreviewPgb.value);	
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<s:Label id="labInfo" width="100%" styleName="small infoColorYellow"/>
+	
+	<s:HGroup height="100%" width="100%">
+		<s:VGroup width="45%" height="100%" horizontalAlign="center" verticalAlign="middle">
+			<s:Label styleName="commonColor middle" text="所选视屏"/>
+			<s:BorderContainer width="80" height="60" borderVisible="false">
+				<s:VideoDisplay id="vidVideoPreview" width="80" height="60"/>		
+			</s:BorderContainer>
+			<s:HSlider id="hslPreviewPgb" buttonMode="true" maximum="{varSYSPlayer.varMovieDuration}" width="80" change="hslPreviewPgb_changeHandler(event)"/>
+			
+			<s:Label styleName="commonColor middle" text="所选照片"/>
+			<s:BorderContainer width="80" height="60" borderVisible="false">
+				<s:Image id="imgPhotoPreview" width="80" height="60"/>		
+			</s:BorderContainer>
+			
+			
+		</s:VGroup>
+		<s:VGroup width="55%" height="100%" horizontalAlign="left" verticalAlign="middle">
+			<s:Label styleName="commonColor middle" text="您可以:"/>
+			<s:HGroup id="shtRecord" verticalAlign="middle">				
+				<mx:Button label="" width="25" height="25"
+						   upSkin="@Embed(source='assets/recordEnable.png')"
+						   overSkin="@Embed(source='assets/recordActive.png')"
+						   downSkin="@Embed(source='assets/recordEnable.png')"
+						   disabledSkin="@Embed(source='assets/recordDisable.png')"
+						   buttonMode="true"
+						   click="dispatchEvent(new ControlEvent('controlButton', 'btnRecord'))"/>
+				<s:Label styleName="commonColor middle" text="录制视屏"/>
+			</s:HGroup>
+			<s:HGroup id="shtPlay" verticalAlign="middle">					
+				<mx:Button label="" width="25" height="25"
+						   upSkin="@Embed(source='assets/playEnable.png')"
+						   overSkin="@Embed(source='assets/playActive.png')"
+						   downSkin="@Embed(source='assets/playEnable.png')"
+						   disabledSkin="@Embed(source='assets/playDisable.png')"
+						   buttonMode="true"
+						   click="dispatchEvent(new ControlEvent('controlButton', 'btnPlay'))"/>
+				<s:Label styleName="commonColor middle" text="播放所选视屏"/>
+			</s:HGroup>
+			<s:HGroup id="shtPhoto" verticalAlign="middle">				
+				<mx:Button label="" width="25" height="25"
+						   upSkin="@Embed(source='assets/photoEnable.png')"
+						   overSkin="@Embed(source='assets/photoActive.png')"
+						   downSkin="@Embed(source='assets/photoEnable.png')"
+						   disabledSkin="@Embed(source='assets/photoDisable.png')"
+						   buttonMode="true"
+						   click="dispatchEvent(new ControlEvent('controlButton', 'btnPhoto'))"/>
+				<s:Label styleName="commonColor middle" text="拍摄照片"/>
+			</s:HGroup>
+			<s:HGroup id="shtUpload" verticalAlign="middle">				
+				<mx:Button label="" width="25" height="25"
+						   upSkin="@Embed(source='assets/uploadEnable.png')"
+						   overSkin="@Embed(source='assets/uploadActive.png')"
+						   downSkin="@Embed(source='assets/uploadEnable.png')"
+						   disabledSkin="@Embed(source='assets/uploadDisable.png')"
+						   buttonMode="true"
+						   click="dispatchEvent(new ControlEvent('controlButton', 'btnUpload'))"/>
+				<s:Label styleName="commonColor middle" text="上传所选视屏和照片"/>
+			</s:HGroup>
+			<s:HGroup id="shtOpen" verticalAlign="middle">				
+				<mx:Button label="" width="25" height="25"
+						   upSkin="@Embed(source='assets/openEnable.png')"
+						   overSkin="@Embed(source='assets/openActive.png')"
+						   downSkin="@Embed(source='assets/openEnable.png')"
+						   disabledSkin="@Embed(source='assets/openDisable.png')"
+						   buttonMode="true"
+						   click="dispatchEvent(new ControlEvent('controlButton', 'btnOpen'))"/>
+				<s:Label styleName="commonColor middle" text="选择已有视频"/>
+			</s:HGroup>
+		</s:VGroup>
+	</s:HGroup>
+	<s:HGroup horizontalAlign="center" verticalAlign="middle" width="100%">
+		<s:Label styleName="middle infoColorBlue" text="摄像头:"/>
+		<s:DropDownList id="ddlCamera" dataProvider="{new ArrayCollection(Camera.names)}" 
+						width="100"
+						selectedIndex="0" change="ddlCamera_changeHandler(event)"
+						/>
+		
+		<s:Label styleName="middle infoColorBlue" text="话筒:"/>
+		<s:DropDownList id="ddlMic" width="100"
+						dataProvider="{new ArrayCollection(Microphone.names)}"
+						selectedIndex="0"/>
+	</s:HGroup>
+	<s:Label styleName="small infoColorBlue" text="{varSYSPlayer.varAuthInfo}" width="100%"/>
+	<components:ControlButtonGroup id="cbg" width="100%"/>
+</s:BorderContainer>

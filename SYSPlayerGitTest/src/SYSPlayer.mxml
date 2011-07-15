@@ -1,0 +1,516 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   xmlns:components="components.*"
+					   backgroundAlpha="0.0"
+					   showStatusBar="false"
+					   currentState="LOGIN"
+					   width="322" height="299"
+					   creationComplete="init()">
+	<s:states>
+		<s:State name="ORIGINAL"/>
+		<s:State name="LOGIN"/>
+		<s:State name="RECORD"/>
+		<s:State name="PLAY"/>
+		<s:State name="PHOTO"/>
+		<s:State name="TRANSITION"/>
+	</s:states>
+	<fx:Metadata>
+		[Event(name="controlButton", type="events.ControlEvent")]
+	</fx:Metadata>
+	<fx:Style>	
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/mx";		
+		s|DropDownList #labelDisplay
+		{
+			font-style:italic;
+			
+		}
+		
+		s|DropDownList:open
+		{	
+		}
+		
+		s|Label
+		{
+			fontFamily:STHeiti,simhei;
+		}
+		
+		s|TextInput
+		{
+			fontFamily:STSong;
+			color:"0x000000";
+			fontSize:15px;
+		}
+		
+		.commonColor
+		{
+			color:#ffffff;
+		}
+		
+		.warningColor
+		{
+			color:#ff0000;
+		}
+		
+		.infoColorYellow
+		{
+			color:#ffff00;
+		}
+		
+		.infoColorBlue
+		{
+			color:#0000ff;
+		}
+		
+		.big
+		{
+			fontSize:30px;
+		}
+		
+		.middle
+		{
+			fontSize:15px;
+		}
+		
+		.small
+		{
+			fontSize:12px;
+		}
+	</fx:Style>
+	
+	<fx:Script>
+		<![CDATA[
+			import events.ControlEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.StateChangeEvent;
+			import mx.graphics.codec.*;
+			import mx.states.State;
+			
+			import org.osmf.metadata.Metadata;
+			
+			private var varMetaObject:Object;
+			private var varNetConnection:NetConnection;
+			
+			private var urlRequest:URLRequest;
+			private var fileReferenceList:FileReferenceList;
+			private var serverSideScript:String = "http://127.0.0.1/~penn/test/upload_file.php";
+			
+			//interactive var
+			public var varNetStream:NetStream;
+			[Bindable]
+			public var varflvHeight:int = 240;
+			[Bindable]
+			public var varflvWidth:int = 320;
+			[Bindable]
+			public var varphotoHeight:int = 240;
+			[Bindable]
+			public var varphotoWidth:int = 320;
+			public var varflvFrameRate:int = 10;
+			
+			[Bindable]
+			public var varUserName:String;
+			[Bindable]
+			public var varPassword:String;
+			public var varUserCompany:String;
+			[Bindable]
+			public var varAuthInfo:String;
+			
+			public var varCurrentPhoto:File;
+			public var varPhotoBitmapData:BitmapData;
+			
+			public var varChoseCameraIndex:int;
+			public var varChoseCamera:Camera;
+			
+			public var varChoseMicIndex:int;
+			public var varChoseMic:Microphone;
+			
+			public var varChoseMovie:File;
+			public var varCurrentMovie:File;
+			public var varMovieSecToKeyFrame:Array;
+			public var varMovieByteArray:ByteArray;
+			public var varMovieStart:int;
+			[Bindable]
+			public var varMovieDuration:int;
+			public var movieOffset:int;
+			
+			public var varRecordSecLimitation:int;
+			
+			private function init():void 
+			{
+				varRecordSecLimitation = 180;
+				varNetConnection = new NetConnection();
+				varNetConnection.connect(null);
+				varNetStream = new NetStream(varNetConnection);
+				varMetaObject = new Object();
+				varMetaObject.onMetaData = onMetaDataHandler();
+				varNetStream.addEventListener(NetStatusEvent.NET_STATUS,netStatusHandler)
+				varNetStream.client = varMetaObject;
+				varNetStream.play(null);
+				addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
+				addEventListener(ControlEvent.CONTROL_BUTTON, controlEventHandler);
+			}
+			
+			private function cleanup():void
+			{
+				varUserName="";
+				varPassword="";
+				varCurrentPhoto = null;
+				varPhotoBitmapData = null;
+				varChoseCameraIndex = 0;
+				varChoseCamera = null;
+				varChoseMicIndex = 0;
+				varChoseMic = null;
+				varChoseMovie = null;
+				varCurrentMovie = null;
+				varMovieSecToKeyFrame = null;
+				varMovieByteArray = null;
+				varMovieStart = -1;
+				varMovieDuration = -1;
+				movieOffset = -1;
+				original.ddlCamera.selectedIndex = 0;
+				original.ddlMic.selectedIndex = 0;
+			}
+			
+			private function onMouseDown(evt:MouseEvent):void
+			{
+				stage.nativeWindow.startMove();
+			}
+			
+			private function controlEventHandler(e:ControlEvent):void
+			{
+				trace("d:" + e.type + ":" + e.strButton);
+				switch(currentState)
+				{
+					case "LOGIN":
+					{
+						if (e.strButton == "btnLogin")
+						{
+							transition.trasitionProcess("LOGIN", "ORIGINAL");
+						}
+						break;
+					}
+					case "ORIGINAL":
+					{
+						if (e.strButton == "btnLogout")
+						{
+							cleanup();
+							transition.trasitionProcess("ORIGINAL", "LOGIN");
+						}
+						else if (e.strButton == "btnPhoto")
+						{
+							//check camera and mic
+							varChoseCamera = Camera.getCamera("" + varChoseCameraIndex);
+							if (varChoseCamera == null)
+							{
+								Alert.show("没有找到摄像头，或摄像头正在使用中！");
+							}
+							else
+							{														
+								transition.trasitionProcess("ORIGINAL", "PHOTO");
+							}
+						}
+						else if (e.strButton == "btnRecord")
+						{
+							//check camera and mic
+							varChoseCamera = Camera.getCamera("" + varChoseCameraIndex);
+							varChoseMic = Microphone.getMicrophone(varChoseMicIndex);
+							if (varChoseCamera == null)
+							{
+								Alert.show("没有找到摄像头，或摄像头正在使用中！");
+							}
+							else if (varChoseMic == null)
+							{
+								Alert.show("没有找到话筒，或话筒正在使用中！");
+							}
+							else
+							{														
+								transition.trasitionProcess("ORIGINAL", "RECORD");
+							}
+							
+						}
+						else if (e.strButton == "btnPlay")
+						{
+							transition.trasitionProcess("ORIGINAL", "PLAY");
+						}
+						else if (e.strButton == "btnUpload")
+						{
+							transition.trasitionProcess("ORIGINAL", "ORIGINAL_FILEUPLOADED");
+						}
+						break;
+					}
+					case "PHOTO":
+					{
+						if (e.strButton == "btnStop")
+						{
+							savePhoto();
+							transition.trasitionProcess("PHOTO", "ORIGINAL");
+						}
+						break;
+					}
+					case "PLAY":
+					{
+						if (e.strButton == "btnStop")
+						{
+							transition.trasitionProcess("PLAY", "ORIGINAL");
+						}
+						break;
+					}
+					case "RECORD":
+					{
+						if (e.strButton == "btnStop")
+						{
+							record.stopRecord();
+							transition.trasitionProcess("RECORD", "ORIGINAL");
+						}
+						break;
+					}
+				}
+			}
+			
+			public function browseFlvFile():void{
+				
+				var flvFilter:FileFilter = new FileFilter("视频文件","*.flv");
+				varChoseMovie = new File();
+				varChoseMovie.addEventListener(Event.SELECT,selectHandler);
+				varChoseMovie.browse([flvFilter]);				
+			}
+			
+			private function selectHandler(e:Event):void
+			{
+				setCurrentMovie(varChoseMovie);
+				transition.trasitionProcess("ORIGINAL", "ORIGINAL_FILESELECTED");
+			}
+			
+			public function setCurrentMovie(varFile:File):void
+			{
+				varCurrentMovie = varFile;
+				resetAndLoadMovie();
+			}
+			
+			public function savePhoto():void
+			{
+				if (varPhotoBitmapData != null)
+				{
+					var png:ByteArray = new PNGEncoder().encode(varPhotoBitmapData);
+					varCurrentPhoto = File.applicationStorageDirectory.resolvePath(varUserName + ".png");
+					var fs:FileStream = new FileStream();
+					fs.open(varCurrentPhoto, FileMode.WRITE);
+					fs.writeBytes(png);
+					fs.close();
+				}
+			}
+			
+			private function resetAndLoadMovie():void
+			{
+				movieOffset = 0;
+				varMovieStart = -1;
+				varMovieSecToKeyFrame = new Array();	
+				var varFs:FileStream = new FileStream();
+				varFs.open(varCurrentMovie, FileMode.READ);
+				varMovieByteArray = new ByteArray;
+				varFs.readBytes(varMovieByteArray);
+				varFs.close();
+				varFs = null;
+				
+				varNetStream.appendBytesAction(NetStreamAppendBytesAction.RESET_BEGIN);
+				varNetStream.play(null);
+				
+				varMetaObject.onSeekPoint = onSeekPointHandler;
+				varNetStream.appendBytes(varMovieByteArray);
+				varMetaObject.onSeekPoint = onSeekPointHandler_null;
+				varNetStream.pause();
+				
+			}
+			
+			private function onSeekPointHandler_null(sec:Number,Iframe:Number):void
+			{
+				trace("onSeekPointHandler_null");
+			}
+			
+			private function onMetaDataHandler():void
+			{
+				
+			}
+			
+			private function onSeekPointHandler(sec:Number,Iframe:Number):void
+			{
+				trace("onSeekPointHandler");
+				if (varMovieStart == -1)
+				{
+					varMovieStart = Math.round(sec);
+				}
+				varMovieSecToKeyFrame[Math.round(sec)] = Iframe;
+				varMovieDuration = Math.round(sec);
+			}
+			
+			private function netStatusHandler(e:NetStatusEvent):void
+			{
+				switch (e.info.code)
+				{
+					case "NetStream.Buffer.Empty":
+						
+						break;
+					case "NetStream.Seek.Notify":
+						varNetStream.appendBytesAction(NetStreamAppendBytesAction.RESET_SEEK);
+						var tmpByteArray:ByteArray = new ByteArray();
+						var chosenSec:int = goToSec(e.info.seekPoint);
+						varMovieByteArray.position = varMovieSecToKeyFrame[chosenSec];
+						trace("now go to:" + chosenSec);
+						movieOffset = chosenSec;
+						varMovieByteArray.readBytes(tmpByteArray);	
+						varNetStream.play(null);
+						varNetStream.appendBytes(tmpByteArray);
+						//						varNetStream.resume();
+				}
+			}
+			
+			//find the byte offset of the special second
+			private function goToSec(sec:int):int
+			{
+				var min:int = varMovieStart;
+				var max:int = varMovieDuration;
+				var step:int = 0;
+				var checkSec:int = sec;
+				var count:int = 0;
+				var checkDirection:int = 1;//1:forward 2:backword
+				
+				while (checkSec > min && checkSec < max)
+				{
+					count++;
+					if (varMovieSecToKeyFrame[checkSec] == undefined)
+					{
+						if (count % 2 == 0)
+						{
+							checkDirection = 1;
+							step++;
+						}
+						else
+						{
+							checkDirection = -1;	
+						}
+						checkSec = sec + step* checkDirection;
+					}
+					else
+					{
+						break;
+					}					
+				}
+				return checkSec;
+			}
+			
+			public function uploadFiles():void
+			{
+				if (login.labIp.text != "")
+				{
+					serverSideScript = "http://" + login.labIp.text + "/~penn/test/upload_file.php";
+					trace(serverSideScript);
+				}
+				transition.prb.indeterminate = false;
+				transition.prb.mode = "manual";
+				transition.labInfo.text = "正在保存视屏...";
+				uploadPhoto();
+				uploadVideo();
+			}
+			
+			private function uploadPhoto():void
+			{
+				var params:URLVariables = new URLVariables();
+				params.user = varUserName;
+				params.pass = varPassword;
+				params.type = ".png";
+
+				urlRequest = new URLRequest(serverSideScript);
+				
+				urlRequest.method = URLRequestMethod.POST;
+				urlRequest.data = params;
+
+				var fileReference:File;
+				
+				// get the first file that the user chose
+				fileReference = varCurrentPhoto;
+				if (fileReference != null && fileReference.exists)
+				{					
+					// upload the file to the server side script
+					fileReference.addEventListener(Event.COMPLETE, photoUploadCompleteHandler);
+					fileReference.upload(urlRequest);
+				}
+			}
+			
+			private function uploadVideo():void
+			{
+				var params:URLVariables = new URLVariables();
+				params.user = varUserName;
+				params.pass = varPassword;
+				params.type = ".flv";
+				
+				urlRequest = new URLRequest(serverSideScript);
+				
+				urlRequest.method = URLRequestMethod.POST;
+				urlRequest.data = params;
+				
+				var fileReference:File;
+				
+				// get the first file that the user chose
+				fileReference = varCurrentMovie;
+				
+				if (fileReference.exists)
+				{
+					// upload the file to the server side script
+					fileReference.addEventListener(Event.COMPLETE, uploadCompleteHandler);
+					fileReference.addEventListener(ProgressEvent.PROGRESS, fileLoadingProgressHandler);
+					
+					fileReference.addEventListener(DataEvent.UPLOAD_COMPLETE_DATA,fileUploadResponseHandler);
+					fileReference.upload(urlRequest);
+				}
+				else
+				{
+					Alert.show("文件不存在，请重试!");
+				}
+			}
+			
+			private function fileUploadResponseHandler(event:DataEvent):void
+			{
+//				trace(event.toString());
+			}
+			
+			private function uploadCompleteHandler(event:Event):void {
+				transition.transitionTo();
+			}
+			
+			private function photoUploadCompleteHandler(event:Event):void {
+				
+			}
+			
+			private function fileLoadingProgressHandler(e:ProgressEvent):void
+			{
+				trace("fileLoadingProgressHandler:" + Math.round((e.bytesLoaded / e.bytesTotal) * 100) + "%");
+				transition.prb.setProgress(e.bytesLoaded, e.bytesTotal);
+				transition.labPercent.text = "" + Math.round((e.bytesLoaded / e.bytesTotal) * 100) + "%";
+			}
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="right" paddingLeft="0" paddingRight="0" paddingBottom="0" paddingTop="0" gap="1"/>
+	</s:layout>
+	
+	<mx:Button width="20" height="17"
+			   upSkin="@Embed(source='assets/closeDefault.png')"
+			   overSkin="@Embed(source='assets/closeActive.png')"
+			   downSkin="@Embed(source='assets/closeActive.png')"
+			   click="this.close()"/>
+	<components:LoginWindow id="login" varSYSPlayer="{this}" includeIn="LOGIN"/>
+	<components:OriginalWindow id="original" varSYSPlayer="{this}" includeIn="ORIGINAL"/>
+	<components:RecordWindow id="record" varSYSPlayer="{this}" includeIn="RECORD"/>
+	<components:PlayWindow id="play" varSYSPlayer="{this}" includeIn="PLAY"/>
+	<components:PhotoWindow id="photo" varSYSPlayer="{this}" includeIn="PHOTO"/>
+	<components:TransitionWindow id="transition" varSYSPlayer="{this}" includeIn="LOGIN,TRANSITION" visible.LOGIN="false" includeInLayout.LOGIN="false"/>
+	
+</s:WindowedApplication>
