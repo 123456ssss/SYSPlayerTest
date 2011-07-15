@@ -141,7 +141,7 @@
 			
 			private function init():void 
 			{
-				varRecordSecLimitation = 160;
+				varRecordSecLimitation = 1600;
 				varNetConnection = new NetConnection();
 				varNetConnection.connect(null);
 				varNetStream = new NetStream(varNetConnection);
